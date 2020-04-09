@@ -1,0 +1,357 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Roguelike">
+    <meta name="author" content="Caleb Robinson">
+
+    <title>7drl</title>
+
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/styles.css?v=1.0">
+
+    <style type="text/css">
+        /* Sticky footer styles
+        -------------------------------------------------- */
+        html {
+            position: relative;
+            min-height: 100%;
+        }
+    
+        body {
+            margin-top: 30px;
+            margin-bottom: 60px; /* Should match the height / line-height of .footer */
+        }
+    
+        .footer {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 60px;
+            line-height: 60px;
+            background-color: #f5f5f5;
+        }
+    
+        hr {
+            margin-top: 20px;
+            margin-bottom: 20px;
+            border: 3px solid #f5f5f5;
+            border-radius: 5px;
+        }
+
+        #divMap {
+            height: 200px;
+            width: 200px;
+            border: 1px solid black;
+            display: inline-block;
+        }
+
+        #divInventory {
+            height: 200px;
+            width: 800px;
+            border: 1px solid black;
+            display: inline-block;
+        }
+
+        #divMessages{
+            max-height: 100px;
+            overflow-y: scroll;
+            overflow-x: hidden;
+        }
+
+        #colMap{
+            border-right: 3px solid #f5f5f5;
+        }
+
+        #colInventory{
+            border-left: 3px solid #f5f5f5;
+        }
+
+        #gameCanvas {
+            /* border: 1px solid black; */
+        }
+    </style>
+
+    
+</head>
+<body>
+
+    <div class="container-fluid">
+
+        <div class="row justify-content-md-center">
+            <div class="col-md-2" id="colMessages">
+                <h4 id="lblMessagesTitle">Game Log</h4>
+                <div id="divMessages">
+                    <div>Message</div>
+                    <div>Message</div>
+                    <div>Message</div>
+                    <div>Message</div>
+                    <div>Message</div>
+                    <div>Message</div>
+                    <div>Message</div>
+                    <div>Message</div>
+                    <div>Message</div>
+                    <div>Message</div>
+                    <div>Message</div>
+                    <div>Message</div>
+                    <div>Message</div>
+                    <div>Message</div>
+                    <div>Message</div>
+                    <div>Message</div>
+                    <div>Message</div>
+                    <div>Message</div>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <canvas id="canvasGame">Please get a newer browser a.s.a.p.</canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+
+        <hr/>
+
+        <div class="row justify-content-md-center">
+            <div class="col-md-auto" id="colMap">
+                <div id="divMap">
+                    Map
+                </div>
+            </div>
+            <div class="col-md-auto" id="colInventory">
+                <div id="divInventory">
+                    Inventory
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+
+    
+    <div class="footer">
+        <div class="container">
+            <span class="text-muted"></span>
+        </div>
+    </div>
+
+    
+    <script src="js/libs/jquery-3.4.1.min.js"></script>
+    <script src="js/libs/bootstrap.bundle.min.js"></script>
+
+
+    <script src="js/sprites.js"></script>
+    <script src="js/map.js"></script>
+    <script type="text/javascript">
+        "use strict"
+
+        //-------------------------
+        // Globals
+        //-------------------------
+        var gViewportWidth = 800;
+        var gViewportHeight = 400;
+
+        var gCanvas;
+        var gContext;
+        var gRunning = false;
+        var gPlayer;
+        var gGameMap;
+        
+        var gMouseXPos;
+        var gMouseYPos;
+
+        var gMouseLeftDown = false;
+        var gMouseRightDown = false;
+
+        // time at which gameLoop last finished
+        var gLastRender = 0;
+
+        // gKeysDown[charCode] will be a boolean that tells us if a certain key is pressed
+        var gKeysDown = [];
+        for(let i=0; i<200; i++){
+            gKeysDown.push(false);
+        }
+        
+        
+        //-------------------------
+        // Player object
+        //-------------------------
+        var Player = function(){
+            //basic props
+            this.width = 10;
+            this.height = 10;
+            this.color = "#f00";
+            
+            this.velocity = 50; // in pixels per second
+
+            this.x = gCanvas.width/2 - this.width/2;
+            this.y = gCanvas.height/2 - this.height/2;
+        }
+        
+        Player.prototype.draw = function(ctx){
+            ctx.save();
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x,this.y,this.width,this.height);
+            ctx.restore();
+        }
+        
+        Player.prototype.update = function(dt){
+            
+            if(gKeysDown[87] || gKeysDown[38]){ // "w" or "up arrow"
+                this.y -= this.velocity * dt;
+            }
+            if(gKeysDown[83] || gKeysDown[40]){ // "s" or "down arrow"
+                this.y += this.velocity * dt;
+            }
+            if(gKeysDown[65] || gKeysDown[37]){ // "a" or "left arrow"
+                this.x -= this.velocity * dt;
+            }
+            if(gKeysDown[68] || gKeysDown[39]){ // "d" or "right arrow"
+                this.x += this.velocity * dt;
+            }
+
+        }
+        
+
+        //-------------------------
+        // Setup code
+        //-------------------------
+        function registerKeyboard(){
+            $(document).on('keydown', function(e){
+                console.debug("Key press: " + e.which);
+                gKeysDown[e.which] = true;
+            });
+
+            $(document).on('keyup', function(e){
+                console.debug("Key release: " + e.which);
+                gKeysDown[e.which] = false;
+
+                if(!e.ctrlKey){
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            });
+        }
+        
+        function registerMouse(){
+            // block right click context menu from appearing
+            $(document).on("contextmenu", function(e){e.preventDefault(); e.stopPropagation();});
+
+            $("#gameCanvas").on('mousemove', mouseHandle);
+            $("#gameCanvas").on('mousedown', clickHandle);
+            $("#gameCanvas").on('mouseup', clickHandle);
+        }
+        
+        function mouseHandle(e){
+            gMouseXPos = e.offsetX;
+            gMouseYPos = e.offsetY;
+            
+            if(gMouseXPos > gCanvas.width) gMouseXPos = gCanvas.width; 
+            if(gMouseYPos > gCanvas.height) gMouseYPos = gCanvas.height;
+
+            console.debug("Mouse moved to: " + gMouseXPos + ", " + gMouseYPos)
+        }
+            
+        function clickHandle(e){
+            let button = e.which;
+            let eventType = e.type;
+            if(button==1){
+                if(eventType == "mouseup"){
+                
+                    console.debug("Left mouse released at: " + e.offsetX + ", " + e.offsetY);
+                    e.stopPropagation();
+                }else if(eventType == "mousedown"){
+                
+                
+                    console.debug("Left mouse pressed at: " + e.offsetX + ", " + e.offsetY);
+                    e.stopPropagation();
+                }
+            } else if (button == 2){
+                console.debug("Blocking middle mouse button");
+                event.preventDefault();
+                e.stopPropagation();
+            } else if (button == 3){
+                console.debug("Blocking right mouse button");
+                event.preventDefault();
+                e.stopPropagation();
+            }
+            
+        }
+        
+        function initGame(){
+            gCanvas = document.getElementById("canvasGame");
+            gContext = gCanvas.getContext("2d");
+            gCanvas.width = gViewportWidth;
+            gCanvas.height = gViewportHeight;
+            
+            gPlayer = new Player();
+            gGameMap = new Map()
+            
+            registerKeyboard();
+            registerMouse();
+            
+            gRunning = true;
+            window.requestAnimationFrame(gameLoop);
+        }
+        
+        function initGUI(){
+
+            let maxMessagesHeight = gViewportHeight - $("#lblMessagesTitle").outerHeight() - 5;
+            $("#divMessages").css("max-height", maxMessagesHeight);
+
+        }
+        
+        //-------------------------
+        // Main loop
+        //-------------------------
+        function gameLoop(timestamp){
+            if(gRunning){
+                // calculate amount of time _in seconds_ since gameLoop was called last
+                let dt = (timestamp - gLastRender) / 1000.0;
+
+                // clear viewport
+                gContext.clearRect(0, 0, gCanvas.width, gCanvas.height);
+
+                //draw
+                gGameMap.draw(gContext);
+                gPlayer.draw(gContext);
+
+                //update
+                gGameMap.update(dt);
+                gPlayer.update(dt);
+                
+                
+
+                capitalLettersBlue["T"].draw(gContext, 20+(16*0), 20)
+                capitalLettersBlue["E"].draw(gContext, 20+(16*1), 20)
+                capitalLettersBlue["S"].draw(gContext, 20+(16*2), 20)
+                capitalLettersBlue["T"].draw(gContext, 20+(16*3), 20)
+
+
+                // record how long everything took to compute
+                let timeTaken = (performance.now() - timestamp) / 1000.0;
+                if(timeTaken > 1){
+                    console.error("Gameloop took over a second to run");
+                }
+                
+                // record the time at which we have updated/rendered everything 
+                gLastRender = timestamp;
+                window.requestAnimationFrame(gameLoop);
+            }
+        }
+        
+        // called when all HTML is finished rendering
+        $(document).ready(function(){
+            SpriteMaps.load();
+            console.debug("Starting game logic");
+
+            initGUI();
+            initGame();
+        });
+    </script>
+
+</body>
+</html>
