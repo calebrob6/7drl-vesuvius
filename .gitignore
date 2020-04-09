@@ -1,0 +1,9 @@
+.ipynb_checkpoints/
+
+images/sprites/*.png
+images/sprites/*.txt
+
+test.html
+template.html
+
+upload.sh
