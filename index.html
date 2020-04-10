@@ -141,7 +141,9 @@
     
     <script src="js/libs/jquery-3.4.1.min.js"></script>
     <script src="js/libs/bootstrap.bundle.min.js"></script>
+    <script src="js/libs/seedrandom-2.3.10.min.js"></script>
 
+    <script src="js/maps/level1.js"></script> <!-- TODO: Remove once map generator is ported -->
 
     <script src="js/sprites.js"></script>
     <script src="js/map.js"></script>
@@ -153,6 +155,9 @@
         //-------------------------
         var gViewportWidth = 800;
         var gViewportHeight = 400;
+
+        var gViewportOffsetPixelsX = 85*16;
+        var gViewportOffsetPixelsY = 62*16;
 
         var gCanvas;
         var gContext;
@@ -221,22 +226,22 @@
 
             // Handle keys
             if(gKeysDown[87] || gKeysDown[38]){ // "w" or "up arrow"
-                this.y -= this.velocity * dt;
+                gViewportOffsetPixelsY -= this.velocity * dt;
                 this.direction = DIRECTIONS.NORTH;
                 accumulateAnimation = true;
             }
             if(gKeysDown[83] || gKeysDown[40]){ // "s" or "down arrow"
-                this.y += this.velocity * dt;
+                gViewportOffsetPixelsY += this.velocity * dt;
                 this.direction = DIRECTIONS.SOUTH;
                 accumulateAnimation = true;
             }
             if(gKeysDown[65] || gKeysDown[37]){ // "a" or "left arrow"
-                this.x -= this.velocity * dt;
+                gViewportOffsetPixelsX -= this.velocity * dt;
                 this.direction = DIRECTIONS.WEST;
                 accumulateAnimation = true;
             }
             if(gKeysDown[68] || gKeysDown[39]){ // "d" or "right arrow"
-                this.x += this.velocity * dt;
+                gViewportOffsetPixelsX += this.velocity * dt;
                 this.direction = DIRECTIONS.EAST;
                 accumulateAnimation = true;
             }
@@ -325,7 +330,7 @@
             gCanvas.height = gViewportHeight;
             
             gPlayer = new Player();
-            gGameMap = new Map()
+            gGameMap = new Map(LEVEL_1);
             
             registerKeyboard();
             registerMouse();
@@ -390,6 +395,7 @@
         // called when all HTML is finished rendering
         $(document).ready(function(){
             console.debug("Starting game logic");
+            Math.seedrandom(123); // from http://davidbau.com/archives/2010/01/30/random_seeds_coded_hints_and_quintillions.html
             waitForSpritesToLoad();
         });
     </script>
